@@ -27,6 +27,6 @@ defmodule Pact.Mixfile do
   defp package do
     %{contributors: ["Blake Williams"],
       licenses: ["MIT"],
-      links: %{github: "https://github.com/BlakeWilliams"}}
+      links: %{github: "https://github.com/BlakeWilliams/pact"}}
   end
 end
