@@ -1,4 +1,28 @@
 defmodule Pact do
+  @moduledoc """
+  A module for managing dependencies in your application. You can set, get, and
+  override dependencies globally or per-pid.
+
+  ## Example
+
+  ```
+  Pact.start
+  Pact.put(:http, HTTPoison)
+
+  Pact.get(:http).get("https://google.com")
+
+  # You can also override per module
+
+  Pact.override(self, :http, FakeHTTP)
+
+  spawn(fn ->
+    Pact.get(:http).get("https://google.com") # Calls HTTPoison
+  end)
+
+  Pact.get(:http).get("https://google.com") # Calls FakeHTTP
+  ```
+  """
+
   use GenServer
 
   def start(initial_modules\\ %{}) do
@@ -6,21 +30,25 @@ defmodule Pact do
     GenServer.start(__MODULE__, modules, name: __MODULE__)
   end
 
+  @doc "Gets the dependency with `name`"
   def get(name) do
     name = to_atom(name)
     GenServer.call(__MODULE__, {:get, name})
   end
 
+  @doc "Assign `module` to the key `name`"
   def put(name, module) do
     name = to_atom(name)
     GenServer.cast(__MODULE__, {:put, name, module})
   end
 
+  @doc "Override all calls to `name` in `pid` with `module`"
   def override(pid, name, module) do
     name = to_atom(name)
     GenServer.cast(__MODULE__, {:override, pid, name, module})
   end
 
+  @doc "Stop Pact"
   def stop do
     GenServer.call(__MODULE__, :stop)
   end
@@ -62,7 +90,7 @@ defmodule Pact do
     {:stop, :normal, :ok, container}
   end
 
-  def to_atom(val) do
+  defp to_atom(val) do
     val |> to_string |> String.to_atom
   end
 end
