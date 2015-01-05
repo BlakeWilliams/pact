@@ -6,10 +6,9 @@ defmodule Pact.Mixfile do
      version: "0.0.1",
      elixir: "~> 1.0",
      deps: deps,
-     licenses: "MIT",
-     contributors: "Blake Williams",
      description: description,
-     links: links
+     source_url: "https://github.com/BlakeWilliams/pact",
+     package: package
    ]
   end
 
@@ -25,7 +24,9 @@ defmodule Pact.Mixfile do
     "Better dependency injection in Elixir through inversion of control"
   end
 
-  defp links do
-    [%{github: "https://github.com/BlakeWilliams"}]
+  defp package do
+    %{contributors: ["Blake Williams"],
+      licenses: ["MIT"],
+      links: %{github: "https://github.com/BlakeWilliams"}}
   end
 end
