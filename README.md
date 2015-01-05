@@ -23,6 +23,10 @@ Pact.override(self, "string", Integer)
 Pact.get("string").parse("1234") # => {1234, ""}
 ```
 
+You can find more information in the [documentation].
+
+[documentation]: http://hexdocs.pm/pact/0.0.1/
+
 ## Disclaimer
 
 Pact is very much an experiment at this point to see if it's viable. If you use
