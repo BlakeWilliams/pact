@@ -26,26 +26,32 @@ defmodule Pact do
   use GenServer
 
   def start(initial_modules\\ %{}) do
-    modules = %{modules: initial_modules, overrides: %{}}
+    modules = %{modules: initial_modules, overrides: %{}, stubs: %{}}
     GenServer.start(__MODULE__, modules, name: __MODULE__)
   end
 
   @doc "Gets the dependency with `name`"
   def get(name) do
-    name = to_atom(name)
+    name = to_string(name)
     GenServer.call(__MODULE__, {:get, name})
   end
 
   @doc "Assign `module` to the key `name`"
   def put(name, module) do
-    name = to_atom(name)
+    name = to_string(name)
     GenServer.cast(__MODULE__, {:put, name, module})
   end
 
   @doc "Override all calls to `name` in `pid` with `module`"
   def override(pid, name, module) do
-    name = to_atom(name)
+    name = to_string(name)
     GenServer.cast(__MODULE__, {:override, pid, name, module})
+  end
+
+  @doc "Remove override from process"
+  def remove_override(pid, name) do
+    name = to_string(name)
+    GenServer.cast(__MODULE__, {:remove_override, pid, name})
   end
 
   @doc "Stop Pact"
@@ -75,6 +81,19 @@ defmodule Pact do
     {:noreply, %{container | overrides: overrides}}
   end
 
+  def handle_cast({:remove_override, pid, name}, container) do
+    override = Map.get(container.overrides, pid, %{})
+                |> Map.delete(name)
+
+    if Map.size(override) == 0 do
+      overrides = Map.delete(container.overrides, pid)
+    else
+      overrides = Map.put(container.overrides, pid, override)
+    end
+
+    {:noreply, %{container | overrides: overrides}}
+  end
+
   def handle_call({:get, name}, {pid, _ref}, container) do
     override = Map.get(container.overrides, pid, %{})[name]
     if override do
@@ -88,9 +107,5 @@ defmodule Pact do
 
   def handle_call(:stop, _from, container) do
     {:stop, :normal, :ok, container}
-  end
-
-  defp to_atom(val) do
-    val |> to_string |> String.to_atom
   end
 end

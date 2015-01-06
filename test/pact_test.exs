@@ -33,6 +33,16 @@ defmodule PactTest do
     assert_receive {:module, Elixir.String}
   end
 
+  test "it can remove overrides" do
+    Pact.put("string", String)
+    Pact.override(self, "string", Integer)
+
+    assert Pact.get("string") == Integer
+    Pact.remove_override(self, "string")
+
+    assert Pact.get("string") == String
+  end
+
   test "it can access and set by atom and string" do
     Pact.put("string", String)
     assert Pact.get(:string) == String
