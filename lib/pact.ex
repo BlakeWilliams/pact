@@ -95,7 +95,8 @@ defmodule Pact do
   end
 
   def handle_call({:get, name}, {pid, _ref}, container) do
-    override = Map.get(container.overrides, pid, %{})[name]
+    override = deep_get(container.overrides, [pid, name])
+
     if override do
       module = override
     else
@@ -107,5 +108,17 @@ defmodule Pact do
 
   def handle_call(:stop, _from, container) do
     {:stop, :normal, :ok, container}
+  end
+
+  def deep_get(object, path) do
+    value = Enum.reduce(path, object, fn (part, map) ->
+      Map.get(map, part, %{})
+    end)
+
+    if value == %{} do
+      nil
+    else
+      value
+    end
   end
 end
