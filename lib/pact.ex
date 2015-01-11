@@ -67,14 +67,14 @@ defmodule Pact do
 
   def handle_cast({:put, name, module}, container) do
     modules = container.modules
-    modules = Map.put(modules, name, module)
+              |> Map.put(name, module)
 
     {:noreply, %{container | modules: modules}}
   end
 
   def handle_cast({:override, pid, name, module}, container) do
     override = Map.get(container.overrides, pid, %{})
-                |> Map.put(name, module)
+               |> Map.put(name, module)
 
     overrides = Map.put(container.overrides, pid, override)
 
@@ -83,7 +83,7 @@ defmodule Pact do
 
   def handle_cast({:remove_override, pid, name}, container) do
     override = Map.get(container.overrides, pid, %{})
-                |> Map.delete(name)
+               |> Map.delete(name)
 
     if Map.size(override) == 0 do
       overrides = Map.delete(container.overrides, pid)
@@ -110,7 +110,7 @@ defmodule Pact do
     {:stop, :normal, :ok, container}
   end
 
-  def deep_get(object, path) do
+  defp deep_get(object, path) do
     value = Enum.reduce(path, object, fn (part, map) ->
       Map.get(map, part, %{})
     end)
