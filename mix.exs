@@ -17,8 +17,11 @@ defmodule Pact.Mixfile do
   end
 
   defp deps do
-    [{:earmark, "~> 0.1", only: :dev},
-     {:ex_doc, "~> 0.6", only: :dev}]
+    [
+      {:earmark, "~> 0.1", only: :dev},
+      {:ex_doc, "~> 0.6", only: :dev},
+      {:meck, "~> 0.8.2"}
+    ]
   end
 
   defp description do

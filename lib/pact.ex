@@ -43,9 +43,16 @@ defmodule Pact do
   end
 
   @doc "Override all calls to `name` in `pid` with `module`"
-  def override(pid, name, module) do
+  def override(pid, name, module) when is_atom(module) do
     name = to_string(name)
     GenServer.cast(__MODULE__, {:override, pid, name, module})
+  end
+
+  def override(pid, name, overridden_functions) when is_list(overridden_functions) do
+    name = to_string(name)
+    fake_module_name = create_fake_module_name(name, pid)
+    stub_module(fake_module_name, overridden_functions)
+    GenServer.cast(__MODULE__, {:override, pid, name, fake_module_name})
   end
 
   @doc "Remove override from process"
@@ -66,15 +73,17 @@ defmodule Pact do
   end
 
   def handle_cast({:put, name, module}, container) do
-    modules = container.modules
-              |> Map.put(name, module)
+    modules =
+      container.modules
+      |> Map.put(name, module)
 
     {:noreply, %{container | modules: modules}}
   end
 
   def handle_cast({:override, pid, name, module}, container) do
-    override = Map.get(container.overrides, pid, %{})
-               |> Map.put(name, module)
+    override =
+      Map.get(container.overrides, pid, %{})
+      |> Map.put(name, module)
 
     overrides = Map.put(container.overrides, pid, override)
 
@@ -82,8 +91,9 @@ defmodule Pact do
   end
 
   def handle_cast({:remove_override, pid, name}, container) do
-    override = Map.get(container.overrides, pid, %{})
-               |> Map.delete(name)
+    override =
+      Map.get(container.overrides, pid, %{})
+      |> Map.delete(name)
 
     if Map.size(override) == 0 do
       overrides = Map.delete(container.overrides, pid)
@@ -109,6 +119,23 @@ defmodule Pact do
   def handle_call(:stop, _from, container) do
     {:stop, :normal, :ok, container}
   end
+
+  defp create_fake_module_name(name, pid) do
+    module_name = String.capitalize(name)
+    String.to_atom("PactFakes#{module_name}#{process_id_as_string(pid)}")
+  end
+
+  defp process_id_as_string(pid) do
+    IO.iodata_to_binary(:erlang.pid_to_list(pid))
+  end
+
+  defp stub_module(module, overridden_functions) do
+    :meck.new(module, [:no_link, :non_strict])
+    Enum.each(overridden_functions, fn ({function_name, function}) ->
+      :meck.expect(module, function_name, function)
+    end)
+  end
+
 
   defp deep_get(object, path) do
     value = Enum.reduce(path, object, fn (part, map) ->

@@ -25,12 +25,30 @@ defmodule PactTest do
     Pact.put("string", String)
     Pact.override(self_pid, "string", Integer)
 
-    spawn fn -> 
+    spawn fn ->
       send self_pid, {:module, Pact.get("string")}
     end
 
     assert Pact.get("string") == Integer
     assert_receive {:module, Elixir.String}
+  end
+
+  test "creates a stubbed module with overridden functions for given process" do
+    Pact.put("foo", String)
+    self_pid = self
+
+    Pact.override(self, "foo",
+      trim: fn -> "bar" end,
+      duplicate: fn(_string) -> "duplicated!" end
+    )
+
+    spawn fn ->
+      send self_pid, {:module, Pact.get("foo")}
+    end
+
+    assert Pact.get("foo").trim == "bar"
+    assert Pact.get("foo").duplicate("Stuff") == "duplicated!"
+    assert_received {:module, String}
   end
 
   test "it can remove overrides" do
