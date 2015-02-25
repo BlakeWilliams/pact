@@ -48,6 +48,15 @@ defmodule Pact do
     GenServer.cast(__MODULE__, {:override, pid, name, module})
   end
 
+  @doc """
+  Override all calls to `name` in `pid` with `overridden_functions`
+
+  ## Example
+
+      Pact.override(self, :mailer, send: fn(_body) -> :foo end)
+
+  This will create a fake module with a `send` function that returns `:foo`
+  """
   def override(pid, name, overridden_functions) when is_list(overridden_functions) do
     name = to_string(name)
     fake_module_name = create_fake_module_name(name, pid)

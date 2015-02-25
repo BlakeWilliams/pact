@@ -3,7 +3,7 @@ defmodule Pact.Mixfile do
 
   def project do
     [app: :pact,
-     version: "0.0.1",
+     version: "0.0.2",
      elixir: "~> 1.0",
      deps: deps,
      description: description,
@@ -29,7 +29,7 @@ defmodule Pact.Mixfile do
   end
 
   defp package do
-    %{contributors: ["Blake Williams"],
+    %{contributors: ["Blake Williams", "Paul Smith"],
       licenses: ["MIT"],
       links: %{github: "https://github.com/BlakeWilliams/pact"}}
   end
