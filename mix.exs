@@ -20,7 +20,6 @@ defmodule Pact.Mixfile do
     [
       {:earmark, "~> 0.1", only: :dev},
       {:ex_doc, "~> 0.6", only: :dev},
-      {:meck, "~> 0.8.2"}
     ]
   end
 

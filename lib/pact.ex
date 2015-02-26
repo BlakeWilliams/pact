@@ -25,8 +25,39 @@ defmodule Pact do
 
   use GenServer
 
+  @doc """
+    Replace the given `name` for `pid` with the given expression. This will
+    generate a new module with the given methods.
+
+    ## Example
+
+    ```
+    import Pact
+
+    Pact.put(:enum, Enum)
+    Pact.replace self, :enum do
+      def map(_map, _fn) do
+        [1, 2, 3]
+      end
+    end
+    ```
+
+    So now if you call `Pact.get(:enum).map(%{}, fn -> end)` it will return
+    `[1, 2, 3]`.
+  """
+  defmacro replace(pid, name, expression) do
+    body = Keyword.get(expression, :do)
+    uid = :base64.encode(:crypto.strong_rand_bytes(5))
+    module_name = String.to_atom("Pact.Fakes.#{name}.#{uid}")
+    module = Module.create(module_name, body, Macro.Env.location(__ENV__))
+
+    quote do
+      Pact.override(unquote(pid), unquote(name), unquote(module_name))
+    end
+  end
+
   def start(initial_modules\\ %{}) do
-    modules = %{modules: initial_modules, overrides: %{}, stubs: %{}}
+    modules = %{modules: initial_modules, overrides: %{}}
     GenServer.start(__MODULE__, modules, name: __MODULE__)
   end
 
@@ -43,25 +74,9 @@ defmodule Pact do
   end
 
   @doc "Override all calls to `name` in `pid` with `module`"
-  def override(pid, name, module) when is_atom(module) do
+  def override(pid, name, module) do
     name = to_string(name)
     GenServer.cast(__MODULE__, {:override, pid, name, module})
-  end
-
-  @doc """
-  Override all calls to `name` in `pid` with `overridden_functions`
-
-  ## Example
-
-      Pact.override(self, :mailer, send: fn(_body) -> :foo end)
-
-  This will create a fake module with a `send` function that returns `:foo`
-  """
-  def override(pid, name, overridden_functions) when is_list(overridden_functions) do
-    name = to_string(name)
-    fake_module_name = create_fake_module_name(name, pid)
-    stub_module(fake_module_name, overridden_functions)
-    GenServer.cast(__MODULE__, {:override, pid, name, fake_module_name})
   end
 
   @doc "Remove override from process"
@@ -114,7 +129,7 @@ defmodule Pact do
   end
 
   def handle_call({:get, name}, {pid, _ref}, container) do
-    override = deep_get(container.overrides, [pid, name])
+    override = get_in(container.overrides, [pid, name])
 
     if override do
       module = override
@@ -127,34 +142,5 @@ defmodule Pact do
 
   def handle_call(:stop, _from, container) do
     {:stop, :normal, :ok, container}
-  end
-
-  defp create_fake_module_name(name, pid) do
-    module_name = String.capitalize(name)
-    String.to_atom("PactFakes#{module_name}#{process_id_as_string(pid)}")
-  end
-
-  defp process_id_as_string(pid) do
-    IO.iodata_to_binary(:erlang.pid_to_list(pid))
-  end
-
-  defp stub_module(module, overridden_functions) do
-    :meck.new(module, [:no_link, :non_strict])
-    Enum.each(overridden_functions, fn ({function_name, function}) ->
-      :meck.expect(module, function_name, function)
-    end)
-  end
-
-
-  defp deep_get(object, path) do
-    value = Enum.reduce(path, object, fn (part, map) ->
-      Map.get(map, part, %{})
-    end)
-
-    if value == %{} do
-      nil
-    else
-      value
-    end
   end
 end

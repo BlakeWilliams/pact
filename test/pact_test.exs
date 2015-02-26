@@ -1,8 +1,13 @@
 defmodule PactTest do
   use ExUnit.Case
+  import Pact
 
-  setup do
+  setup_all do
     Pact.start
+
+    on_exit fn ->
+      Pact.stop
+    end
     :ok
   end
 
@@ -33,24 +38,6 @@ defmodule PactTest do
     assert_receive {:module, Elixir.String}
   end
 
-  test "creates a stubbed module with overridden functions for given process" do
-    Pact.put("foo", String)
-    self_pid = self
-
-    Pact.override(self, "foo",
-      trim: fn -> "bar" end,
-      duplicate: fn(_string) -> "duplicated!" end
-    )
-
-    spawn fn ->
-      send self_pid, {:module, Pact.get("foo")}
-    end
-
-    assert Pact.get("foo").trim == "bar"
-    assert Pact.get("foo").duplicate("Stuff") == "duplicated!"
-    assert_received {:module, String}
-  end
-
   test "it can remove overrides" do
     Pact.put("string", String)
     Pact.override(self, "string", Integer)
@@ -67,5 +54,29 @@ defmodule PactTest do
 
     Pact.put(:string, Integer)
     assert Pact.get("string") == Integer
+  end
+
+  test "replace module replaces the given module" do
+    Pact.put("foo", String)
+
+    Pact.replace self, "foo" do
+      def awesome?, do: true
+      def lame?, do: false
+    end
+
+    assert Pact.get("foo").awesome? == true
+    assert Pact.get("foo").lame? == false
+  end
+
+  test "replace generates unique module names" do
+    Pact.put("foo", String)
+
+    Pact.replace self, "foo" do; end
+    module = Pact.get("foo")
+
+    Pact.replace self, "foo" do; end
+    new_module = Pact.get("foo")
+
+    assert to_string(module) != to_string(new_module)
   end
 end
