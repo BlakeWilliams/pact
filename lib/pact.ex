@@ -48,7 +48,7 @@ defmodule Pact do
   defmacro replace(pid, name, expression) do
     body = Keyword.get(expression, :do)
     uid = :base64.encode(:crypto.strong_rand_bytes(5))
-    module_name = String.to_atom("Pact.Fakes.#{name}.#{uid}")
+    module_name = Module.concat([Pact, Fakes, name, uid])
     module = Module.create(module_name, body, Macro.Env.location(__ENV__))
 
     quote do
