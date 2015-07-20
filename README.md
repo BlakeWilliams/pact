@@ -1,31 +1,62 @@
 # Pact
 
-Better dependency injection in Elixir for cleaner code and testing.
-
+Pact is a dependency registry for Elixir to make testing dependencies easier.
 ## Why?
 
-Because testing Elixir flat out sucks. Why clutter up your code injecting
-dependencies when a process can handle it for you?
+Because testing Elixir dependencies could be a lot better. Why clutter up your
+code injecting dependencies when a process can handle it for you?
 
 * You can declare your modules instead of passing them around like state.
-* You can override dependencies per process to make testing easier.
-* It makes your code look a lot cleaner.
+* You can replace dependencies in a block context for easy testing.
+* It makes your code cleaner.
 
 ## Usage
 
+In your application code:
+
 ```elixir
-Pact.start
-Pact.put("string", String)
+defmodule MyApp.Pact do
+  use Pact
 
-Pact.get("string").to_atom("xyz") # => :xyz
+  register "http", HTTPoison
+end
 
-Pact.override(self, "string", Integer)
-Pact.get("string").parse("1234") # => {1234, ""}
+MyApp.Pact.start_link
+
+defmodule MyApp.Users do
+  def all do
+    MyApp.Pact.get("http").get!("http://foobar.com/api/users")
+  end
+end
+
+```
+
+In your tests:
+
+```
+defmodule MyApp.UserTest do
+  use ExUnit.Case
+  require MyApp.Pact
+
+  test "requests the corrent endpoint" do
+    fakeHTTP = MyApp.Pact.generate :http do
+      def get(url) do
+        send self(), {:called, url}
+      end
+    end
+
+    MyApp.Pact.replace "http", fakeHTTP do
+      MyApp.Users.all
+    end
+
+    assert_receive {:called, "http://foobar.com/api/users"}
+  end
+end
 ```
 
 You can find more information in the [documentation].
 
-[documentation]: http://hexdocs.pm/pact/0.0.1/
+[documentation]: http://hexdocs.pm/pact
 
 ## Disclaimer
 

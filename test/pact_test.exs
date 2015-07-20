@@ -1,82 +1,56 @@
+defmodule FakeApp.Pact do
+  use Pact
+
+  register "http", HTTPoison
+end
+
 defmodule PactTest do
   use ExUnit.Case
-  import Pact
 
   setup_all do
-    Pact.start
-
-    on_exit fn ->
-      Pact.stop
-    end
+    FakeApp.Pact.start_link
     :ok
   end
 
-  test "it can assign and use modules", _context do
-    Pact.put("string", String)
-
-    assert Pact.get("string").to_atom("xyz") == :xyz
+  test "accesses pre-registered modules" do
+    assert FakeApp.Pact.get("http") === HTTPoison
   end
 
-  test "it can re-assign modules" do
-    Pact.put("string", String)
-    Pact.put("string", Integer)
+  test "registers and accesses modules manually" do
+    FakeApp.Pact.register("markdown", Earmark)
 
-    assert Pact.get("string") == Integer
+    assert FakeApp.Pact.get("markdown") ==  Earmark
   end
 
-  test "it can override specific processes" do
-    self_pid = self
+  test "replaces modules only in block" do
+    require FakeApp.Pact
 
-    Pact.put("string", String)
-    Pact.override(self_pid, "string", Integer)
-
-    spawn fn ->
-      send self_pid, {:module, Pact.get("string")}
+    FakeApp.Pact.replace "http", FakeHTTP do
+      assert FakeApp.Pact.get("http") == FakeHTTP
     end
 
-    assert Pact.get("string") == Integer
-    assert_receive {:module, Elixir.String}
+    assert FakeApp.Pact.get("http") == HTTPoison
   end
 
-  test "it can remove overrides" do
-    Pact.put("string", String)
-    Pact.override(self, "string", Integer)
+  test "generates anonymous modules to use with replace" do
+    require FakeApp.Pact
 
-    assert Pact.get("string") == Integer
-    Pact.remove_override(self, "string")
-
-    assert Pact.get("string") == String
-  end
-
-  test "it can access and set by atom and string" do
-    Pact.put("string", String)
-    assert Pact.get(:string) == String
-
-    Pact.put(:string, Integer)
-    assert Pact.get("string") == Integer
-  end
-
-  test "replace module replaces the given module" do
-    Pact.put("foo", String)
-
-    Pact.replace self, "foo" do
-      def awesome?, do: true
-      def lame?, do: false
+    fakeHTTP = FakeApp.Pact.generate :HTTPoison do
+      def get(url) do
+        url
+      end
     end
 
-    assert Pact.get("foo").awesome? == true
-    assert Pact.get("foo").lame? == false
+    assert fakeHTTP.get("url") == "url"
   end
 
-  test "replace generates unique module names" do
-    Pact.put("foo", String)
+  test "generates fake and replace module only in block" do
+    require FakeApp.Pact
 
-    Pact.replace self, "foo" do; end
-    module = Pact.get("foo")
+    fakeHTTP = FakeApp.Pact.generate :HTTPoison, do: nil
 
-    Pact.replace self, "foo" do; end
-    new_module = Pact.get("foo")
-
-    assert to_string(module) != to_string(new_module)
+    FakeApp.Pact.replace "http", fakeHTTP do
+      assert FakeApp.Pact.get("http") == fakeHTTP
+    end
   end
 end

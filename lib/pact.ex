@@ -1,146 +1,131 @@
 defmodule Pact do
   @moduledoc """
-  A module for managing dependencies in your application. You can set, get, and
-  override dependencies globally or per-pid.
+  A module for managing dependecies in your applicaiton without having to
+  "inject" dependencies all the way down your aplication. Pact allows you to
+  set and get dependencies in your application code, and generate fakes and
+  replace modules in your tests.
 
-  ## Example
+  To use Pact, define a module in your application that has `use Pact` in it,
+  and then call `start_link` on it to start registering your dependencies.
+
+  ## Usage
 
   ```
-  Pact.start
-  Pact.put(:http, HTTPoison)
+  defmodule MyApp.Pact do
+    use Pact
 
-  Pact.get(:http).get("https://google.com")
+    register "http", HTTPoison
+  end
 
-  # You can also override per module
+  MyApp.Pact.start_link
 
-  Pact.override(self, :http, FakeHTTP)
-
-  spawn(fn ->
-    Pact.get(:http).get("https://google.com") # Calls HTTPoison
-  end)
-
-  Pact.get(:http).get("https://google.com") # Calls FakeHTTP
+  defmodule MyApp.Users do
+    def all do
+      MyApp.Pact.get("http").get("http://foobar.com/api/users")
+    end
+  end
   ```
+
+  Then in your tests you can use Pact to replace the module easily:
+
+  ```
+  defmodule MyAppTest do
+    use ExUnit.Case
+    require MyApp.Pact
+
+    test "requests the corrent endpoint" do
+      fakeHTTP = MyApp.Pact.generate :http do
+        def get(url) do
+          send self(), {:called, url}
+        end
+      end
+
+      MyApp.Pact.replace "http", fakeHTTP do
+        MyApp.Users.all
+      end
+
+      assert_receive {:called, "http://foobar.com/api/users"}
+    end
+  end
+  ```
+
+  ## Functions / Macros
+
+  * `generate(name, block)` - Generates an anonymous module that's body is 
+    block`.
+  * `replace(name, module, block)` - Replaces `name` with `module` in the given
+    `block` only.
+  * `register(name, module)` - Registers `name` as `module`.
+  * `get(name)` - Get registed module for `name`.
   """
 
-  use GenServer
+  defmacro __using__(_) do
+    quote do
+      import Pact
+      use GenServer
 
-  @doc """
-    Replace the given `name` for `pid` with the given expression. This will
-    generate a new module with the given methods.
+      @modules %{}
+      @before_compile Pact
 
-    ## Example
+      defmacro generate(name, do: block) do
+        string_name = to_string(name)
+        uid = :base64.encode(:crypto.strong_rand_bytes(5))
 
-    ```
-    import Pact
+        module_name = String.to_atom("#{__MODULE__}.Fakes.#{string_name}.#{uid}")
+        module = Module.create(module_name, block, Macro.Env.location(__ENV__))
 
-    Pact.put(:enum, Enum)
-    Pact.replace self, :enum do
-      def map(_map, _fn) do
-        [1, 2, 3]
+        quote do
+          unquote(module_name)
+        end
+      end
+
+      defmacro replace(name, module, do: block) do
+        quote do
+          existing_module = unquote(__MODULE__).get(unquote(name))
+          unquote(__MODULE__).register(unquote(name), unquote(module))
+          unquote(block)
+          unquote(__MODULE__).register(unquote(name), existing_module)
+        end
+      end
+
+      def register(name, module) do
+        GenServer.cast(__MODULE__, {:register, name, module})
+      end
+
+      def get(name) do
+        GenServer.call(__MODULE__, {:get, name})
+      end
+
+      # Genserver implementation
+
+      def init(container) do
+        {:ok, container}
+      end
+
+      def handle_cast({:register, name, module}, state) do
+        modules = Map.put(state.modules, name, module)
+        {:noreply, %{state | modules: modules}}
+      end
+
+      def handle_call({:get, name}, _from, state) do
+        module = get_in(state, [:modules, name])
+        {:reply, module, state}
       end
     end
-    ```
+  end
 
-    So now if you call `Pact.get(:enum).map(%{}, fn -> end)` it will return
-    `[1, 2, 3]`.
-  """
-  defmacro replace(pid, name, expression) do
-    body = Keyword.get(expression, :do)
-    uid = :base64.encode(:crypto.strong_rand_bytes(5))
-    module_name = Module.concat([Pact, Fakes, name, uid])
-    module = Module.create(module_name, body, Macro.Env.location(__ENV__))
-
+  @doc false
+  defmacro register(name, module) do
     quote do
-      Pact.override(unquote(pid), unquote(name), unquote(module_name))
+      @modules Map.put(@modules, unquote(name), unquote(module))
     end
   end
 
-  def start(initial_modules\\ %{}) do
-    modules = %{modules: initial_modules, overrides: %{}}
-    GenServer.start(__MODULE__, modules, name: __MODULE__)
-  end
-
-  @doc "Gets the dependency with `name`"
-  def get(name) do
-    name = to_string(name)
-    GenServer.call(__MODULE__, {:get, name})
-  end
-
-  @doc "Assign `module` to the key `name`"
-  def put(name, module) do
-    name = to_string(name)
-    GenServer.cast(__MODULE__, {:put, name, module})
-  end
-
-  @doc "Override all calls to `name` in `pid` with `module`"
-  def override(pid, name, module) do
-    name = to_string(name)
-    GenServer.cast(__MODULE__, {:override, pid, name, module})
-  end
-
-  @doc "Remove override from process"
-  def remove_override(pid, name) do
-    name = to_string(name)
-    GenServer.cast(__MODULE__, {:remove_override, pid, name})
-  end
-
-  @doc "Stop Pact"
-  def stop do
-    GenServer.call(__MODULE__, :stop)
-  end
-
-  # GenServer
-
-  def init(container) do
-    {:ok, container}
-  end
-
-  def handle_cast({:put, name, module}, container) do
-    modules =
-      container.modules
-      |> Map.put(name, module)
-
-    {:noreply, %{container | modules: modules}}
-  end
-
-  def handle_cast({:override, pid, name, module}, container) do
-    override =
-      Map.get(container.overrides, pid, %{})
-      |> Map.put(name, module)
-
-    overrides = Map.put(container.overrides, pid, override)
-
-    {:noreply, %{container | overrides: overrides}}
-  end
-
-  def handle_cast({:remove_override, pid, name}, container) do
-    override =
-      Map.get(container.overrides, pid, %{})
-      |> Map.delete(name)
-
-    if Map.size(override) == 0 do
-      overrides = Map.delete(container.overrides, pid)
-    else
-      overrides = Map.put(container.overrides, pid, override)
+  defmacro __before_compile__(_env) do
+    quote do
+      def start_link do
+        GenServer.start_link(__MODULE__, %{modules: @modules}, name: __MODULE__)
+      end
     end
-
-    {:noreply, %{container | overrides: overrides}}
-  end
-
-  def handle_call({:get, name}, {pid, _ref}, container) do
-    override = get_in(container.overrides, [pid, name])
-
-    if override do
-      module = override
-    else
-      module = Map.get(container.modules, name)
-    end
-
-    {:reply, module, container}
-  end
-
-  def handle_call(:stop, _from, container) do
-    {:stop, :normal, :ok, container}
   end
 end
