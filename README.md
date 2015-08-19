@@ -33,7 +33,7 @@ end
 
 In your tests:
 
-```
+```elixir
 defmodule MyApp.UserTest do
   use ExUnit.Case
   require MyApp.Pact
