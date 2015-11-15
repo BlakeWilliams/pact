@@ -40,7 +40,7 @@ defmodule MyApp.UserTest do
 
   test "requests the corrent endpoint" do
     fakeHTTP = MyApp.Pact.generate :http do
-      def get(url) do
+      def get!(url) do
         send self(), {:called, url}
       end
     end
