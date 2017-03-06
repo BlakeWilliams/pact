@@ -89,11 +89,15 @@ defmodule Pact do
         end
       end
 
+      def register(name, module) do
+         register(name, module, :registry)
+      end
+
       def register(name, module, :process) do
         Process.put(name, module)
       end
 
-      def register(name, module, where \\ :registry ) do
+      def register(name, module, :registry ) do
         GenServer.cast(__MODULE__, {:register, name, module})
       end
 
@@ -130,7 +134,7 @@ defmodule Pact do
     end
   end
 
-  defmacro __before_compile__(env) do
+  defmacro __before_compile__(_env) do
     quote do
       def start_link do
         GenServer.start_link(__MODULE__, %{modules: @modules}, name: __MODULE__)
