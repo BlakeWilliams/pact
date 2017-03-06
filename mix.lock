@@ -1,2 +1,3 @@
-%{"earmark": {:hex, :earmark, "0.1.12"},
-  "ex_doc": {:hex, :ex_doc, "0.7.0"}}
+%{"annotatable": {:hex, :annotatable, "0.1.2", "29103613c986d7f56a80635a4548fa54a9c1011e4c419f4dbc8607f1c4bd3e9f", [:mix], []},
+  "earmark": {:hex, :earmark, "0.1.12", "ae057eb004b23ecd32125608efbb33be8b924db54e56ae69a8cb113362b2463c", [:mix], []},
+  "ex_doc": {:hex, :ex_doc, "0.7.0", "127d10d02dd7810cd52f1cda68195d137ad2b426100f98db45d272fced8a32c6", [:mix], []}}

@@ -51,7 +51,7 @@ defmodule Pact do
 
   ## Functions / Macros
 
-  * `generate(name, block)` - Generates an anonymous module that's body is 
+  * `generate(name, block)` - Generates an anonymous module that's body is
     block`.
   * `replace(name, module, block)` - Replaces `name` with `module` in the given
     `block` only.
@@ -63,6 +63,7 @@ defmodule Pact do
     quote do
       import Pact
       use GenServer
+
 
       @modules %{}
       @before_compile Pact
@@ -79,20 +80,28 @@ defmodule Pact do
         end
       end
 
-      defmacro replace(name, module, do: block) do
+      defmacro replace(name, module, where \\ :registry, do: block) do
         quote do
           existing_module = unquote(__MODULE__).get(unquote(name))
-          unquote(__MODULE__).register(unquote(name), unquote(module))
+          unquote(__MODULE__).register(unquote(name), unquote(module), unquote(where))
           unquote(block)
-          unquote(__MODULE__).register(unquote(name), existing_module)
+          unquote(__MODULE__).register(unquote(name), existing_module, unquote(where))
         end
       end
 
-      def register(name, module) do
+      def register(name, module, :process) do
+        Process.put(name, module)
+      end
+
+      def register(name, module, where \\ :registry ) do
         GenServer.cast(__MODULE__, {:register, name, module})
       end
 
       def get(name) do
+        Process.get(name, get(name, :registry))
+      end
+
+      def get(name, :registry) do
         GenServer.call(__MODULE__, {:get, name})
       end
 
@@ -121,7 +130,7 @@ defmodule Pact do
     end
   end
 
-  defmacro __before_compile__(_env) do
+  defmacro __before_compile__(env) do
     quote do
       def start_link do
         GenServer.start_link(__MODULE__, %{modules: @modules}, name: __MODULE__)

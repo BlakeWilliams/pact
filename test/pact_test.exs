@@ -5,7 +5,7 @@ defmodule FakeApp.Pact do
 end
 
 defmodule PactTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   setup_all do
     FakeApp.Pact.start_link
@@ -53,4 +53,37 @@ defmodule PactTest do
       assert FakeApp.Pact.get("http") == fakeHTTP
     end
   end
+
+  test "replacing dependencies on process for async testing" do
+    require FakeApp.Pact
+
+    fakeHTTP = FakeApp.Pact.generate :HTTPoison do
+      def get(url), do: url
+    end
+
+    otherFakeHTTP = FakeApp.Pact.generate :HTTPoison do
+      def get(url), do: "#{url}/alternate"
+    end
+
+    1..10000
+      |> Enum.map(fn indx ->
+        [
+          Task.async(fn  -> replace(fakeHTTP, indx, indx) end),
+          Task.async(fn  -> replace(otherFakeHTTP, indx, "#{indx}/alternate") end)
+        ]
+      end)
+      |> Enum.each(fn [task1, task2] ->
+        Process.monitor(task1.pid)
+        Process.monitor(task2.pid)
+      end)
+  end
+
+  defp replace(module, input, assertion) do
+    require FakeApp.Pact
+
+    FakeApp.Pact.replace "http", module, :process do
+      assert FakeApp.Pact.get("http").get(input) == assertion
+    end
+  end
+
 end

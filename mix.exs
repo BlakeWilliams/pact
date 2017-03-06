@@ -20,6 +20,7 @@ defmodule Pact.Mixfile do
     [
       {:earmark, "~> 0.1", only: :dev},
       {:ex_doc, "~> 0.6", only: :dev},
+      {:annotatable, "~> 0.1.2"},
     ]
   end
 
