@@ -65,7 +65,7 @@ defmodule PactTest do
       def get(url), do: "#{url}/alternate"
     end
 
-    1..10000
+    1..100000
       |> Enum.map(fn indx ->
         [
           Task.async(fn  -> replace(fakeHTTP, indx, indx) end),

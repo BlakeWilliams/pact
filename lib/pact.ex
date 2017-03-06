@@ -79,6 +79,7 @@ defmodule Pact do
         end
       end
 
+
       defmacro replace(name, module, where \\ :registry, do: block) do
         quote do
           existing_module = unquote(__MODULE__).get(unquote(name))
@@ -88,22 +89,13 @@ defmodule Pact do
         end
       end
 
-      def register(name, module, :process) do
-        Process.put(name, module)
-      end
-
-      def register(name, module, where \\ :registry ) do
-        GenServer.cast(__MODULE__, {:register, name, module})
-      end
+      def register(name, module), do: register(name, module, :registry)
+      def register(name, module, :process), do: Process.put(name, module)
+      def register(name, module, where ), do: GenServer.cast(__MODULE__, {:register, name, module})
 
 
-      def get(name) do
-        Process.get(name, get(name, :registry))
-      end
-
-      def get(name, :registry) do
-        GenServer.call(__MODULE__, {:get, name})
-      end
+      def get(name), do: Process.get(name, get(name, :registry))
+      def get(name, :registry), do: GenServer.call(__MODULE__, {:get, name})
 
       # Genserver implementation
 
