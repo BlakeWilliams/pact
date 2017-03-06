@@ -11,7 +11,7 @@ defmodule Pact.AutoResolve do
   defmacro __before_compile__(env) do
     annotations = Module.get_attribute(env.module, :annotations)
     annotations |> Enum.map(fn {name, [%{method_info: method_info, value: value}]} ->
-      {args, _guards, _} = method_info
+      {args, _, _} = method_info
       [dependencies | no_dep_args] = Enum.reverse args
       no_dep_args =  Enum.reverse no_dep_args
       dependency_keys = dependencies |> Enum.map(fn {name, _} -> name end)
