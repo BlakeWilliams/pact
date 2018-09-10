@@ -5,10 +5,10 @@ defmodule Pact.Mixfile do
     [app: :pact,
      version: "0.2.0",
      elixir: "~> 1.0",
-     deps: deps,
-     description: description,
+     deps: deps(),
+     description: description(),
      source_url: "https://github.com/BlakeWilliams/pact",
-     package: package
+     package: package()
    ]
   end
 
